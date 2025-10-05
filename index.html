@@ -28,6 +28,10 @@
     .legend span { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.6rem; border-radius: 0.5rem; background: rgba(33, 74, 138, 0.08); }
     .legend i { display: inline-block; width: 0.75rem; height: 0.75rem; border-radius: 50%; }
     .legend .person { background: #1b5e20; } .legend .place { background: #1565c0; } .legend .title { background: #8e24aa; } .legend .event { background: #ef6c00; } .legend .default { background: #546e7a; }
+    .detail-card { background: rgba(255, 255, 255, 0.95); border-radius: 0.75rem; padding: 1.5rem 1.2rem 1.8rem; box-shadow: 0 18px 40px -20px rgba(33, 74, 138, 0.4); border: 1px solid rgba(33, 74, 138, 0.08); }
+    .detail-card h3 { margin: 0 0 0.4rem; font-size: 1.3rem; color: #214a8a; }
+    .detail-iri { margin: 0 0 1.1rem; font-size: 0.9rem; color: #546e7a; word-break: break-all; }
+    .detail-empty { margin: 0; color: #777; font-size: 0.95rem; }
     .viewer details { border-radius: 0.75rem; background: rgba(255, 255, 255, 0.9); margin-bottom: 1rem; box-shadow: 0 12px 32px -16px rgba(33, 74, 138, 0.35); overflow: hidden; }
     .viewer summary { cursor: pointer; font-weight: 600; padding: 0.9rem 1.2rem; background: linear-gradient(90deg, rgba(33, 74, 138, 0.16), rgba(33, 74, 138, 0)); outline: none; }
     .viewer summary::-webkit-details-marker { display: none; }
@@ -61,6 +65,18 @@
       </div>
     </section>
 
+    <section id="nodeDetailSection" hidden>
+      <h2 class="section-title">节点详情</h2>
+      <div class="detail-card">
+        <h3 id="nodeDetailLabel"></h3>
+        <p id="nodeDetailIri" class="detail-iri"></p>
+        <table>
+          <tbody id="nodeDetailBody"></tbody>
+        </table>
+        <p id="nodeDetailEmpty" class="detail-empty" hidden>暂无属性可显示。</p>
+      </div>
+    </section>
+
     <section id="tripleSection" hidden>
       <h2 class="section-title">三元组分组</h2>
       <section id="viewer" class="viewer"></section>
@@ -86,8 +102,18 @@
     const graphSection = document.getElementById('graphSection');
     const tripleSection = document.getElementById('tripleSection');
     const networkEl = document.getElementById('network');
+    const nodeDetailSection = document.getElementById('nodeDetailSection');
+    const nodeDetailLabelEl = document.getElementById('nodeDetailLabel');
+    const nodeDetailIriEl = document.getElementById('nodeDetailIri');
+    const nodeDetailBodyEl = document.getElementById('nodeDetailBody');
+    const nodeDetailEmptyEl = document.getElementById('nodeDetailEmpty');
 
     const { Parser } = N3;
+
+    let currentPrefixes = [];
+    let statementIndex = new Map();
+    let nodesDatasetRef = null;
+    let networkRef = null;
 
     const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
     const RDFS_LABEL = 'http://www.w3.org/2000/01/rdf-schema#label';
@@ -115,9 +141,8 @@
       'http://schema.org/roleName'
     ]);
 
-    // 🔧 用页面的 base IRI 动态拼出你的命名空间（避免写死用户名）
-    const BASE = new URL('./', document.baseURI).href;
-    const NS = (local) => BASE + local;
+    const GENEALOGY_BASE = 'https://cloudliu01.github.io/genealogy-ontology/';
+    const NS = (local) => `${GENEALOGY_BASE}${local}`;
 
     const UNDIRECTED_PREDICATES = new Set([
       NS('spouse'),
@@ -142,24 +167,74 @@
       { group: 'Place',  matches: (types) => types.has(NS('Place'))  || types.has('http://schema.org/Place')  },
       { group: 'Title',  matches: (types) => types.has(NS('Title'))  || types.has('http://schema.org/Role')   },
       { group: 'Event',
-        matches: (types) => Array.from(types).some((iri) => iri.startsWith(BASE) && /Event|Birth|Death|Burial|Marriage/.test(iri))
+        matches: (types) => Array.from(types).some((iri) => iri.startsWith(GENEALOGY_BASE) && /Event|Birth|Death|Burial|Marriage/.test(iri))
                                || types.has('http://schema.org/Event') }
     ];
 
+    const CLASS_LIKE_TYPES = new Set([
+      'http://www.w3.org/2002/07/owl#Class',
+      'http://www.w3.org/2002/07/owl#ObjectProperty',
+      'http://www.w3.org/2002/07/owl#DatatypeProperty',
+      'http://www.w3.org/2002/07/owl#Ontology',
+      'http://www.w3.org/2002/07/owl#AnnotationProperty',
+      'http://www.w3.org/1999/02/22-rdf-syntax-ns#Property'
+    ]);
+
     const prefixRegex = /@prefix\s+([A-Za-z][\w-]*):\s*<([^>]+)>\s*\./g;
-    const extractPrefixes = (text) => { const out=[]; let m; while ((m=prefixRegex.exec(text))) out.push({prefix:m[1], iri:m[2]}); return out; };
-    const mergePrefixArray = (map, arr)=>arr?.forEach(({prefix,iri})=>{ if(!map.has(prefix)) map.set(prefix,iri); });
-    const mergePrefixObject = (map, obj)=>obj && Object.entries(obj).forEach(([p,i])=>{ if(!map.has(p)) map.set(p,i); });
-    const buildPrefixList = (map)=>Array.from(map.entries()).map(([prefix,iri])=>({prefix,iri})).sort((a,b)=>b.iri.length-a.iri.length);
+
+    const extractPrefixes = (text) => {
+      const out = [];
+      let match;
+      while ((match = prefixRegex.exec(text))) {
+        out.push({ prefix: match[1], iri: match[2] });
+      }
+      return out;
+    };
+
+    const mergePrefixArray = (map, arr) => {
+      arr?.forEach(({ prefix, iri }) => {
+        if (!map.has(prefix)) map.set(prefix, iri);
+      });
+    };
+
+    const mergePrefixObject = (map, obj) => {
+      if (!obj) return;
+      Object.entries(obj).forEach(([prefix, iri]) => {
+        if (!map.has(prefix)) map.set(prefix, iri);
+      });
+    };
+
+    const buildPrefixList = (map) =>
+      Array.from(map.entries())
+        .map(([prefix, iri]) => ({ prefix, iri }))
+        .sort((a, b) => b.iri.length - a.iri.length);
 
     const shortenIri = (iri, prefixes) => {
-      for (const { prefix, iri: base } of prefixes) if (iri.startsWith(base)) return (iri.slice(base.length) ? `${prefix}:${iri.slice(base.length)}` : `${prefix}:`);
+      for (const { prefix, iri: base } of prefixes) {
+        if (iri.startsWith(base)) {
+          const suffix = iri.slice(base.length);
+          return suffix ? `${prefix}:${suffix}` : `${prefix}:`;
+        }
+      }
       return `<${iri}>`;
     };
-    const literalToString = (lit) => lit.language ? `"${lit.value}"@${lit.language}`
-      : (lit.datatype && lit.datatype.value && lit.datatype.value!=='http://www.w3.org/2001/XMLSchema#string')
-        ? `"${lit.value}"^^<${lit.datatype.value}>` : `"${lit.value}"`;
-    const escapeHtml = (v)=>v.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+    const literalToString = (literal) => {
+      if (literal.language) return `"${literal.value}"@${literal.language}`;
+      const datatype = literal.datatype && literal.datatype.value;
+      if (datatype && datatype !== 'http://www.w3.org/2001/XMLSchema#string') {
+        return `"${literal.value}"^^<${datatype}>`;
+      }
+      return `"${literal.value}"`;
+    };
+
+    const escapeHtml = (value) =>
+      value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 
     const XSD_STRING = 'http://www.w3.org/2001/XMLSchema#string';
     const DATE_LIKE_TYPES = new Set([
@@ -169,89 +244,200 @@
       'http://www.w3.org/2001/XMLSchema#dateTime'
     ]);
 
-    const formatLiteralForTooltip = (lit, prefixes) => {
-      const dt = lit.datatype && lit.datatype.value;
-      if (lit.language) return `${lit.value} @${lit.language}`;
-      if (!dt || dt===XSD_STRING || DATE_LIKE_TYPES.has(dt)) return lit.value;
-      return `${lit.value}^^${shortenIri(dt, prefixes)}`;
+    const formatLiteralForTooltip = (literal, prefixes) => {
+      const datatype = literal.datatype && literal.datatype.value;
+      if (literal.language) return `${literal.value} @${literal.language}`;
+      if (!datatype || datatype === XSD_STRING || DATE_LIKE_TYPES.has(datatype)) return literal.value;
+      return `${literal.value}^^${shortenIri(datatype, prefixes)}`;
     };
 
-    const termToString = (term, prefixes) =>
-      term.termType==='NamedNode' ? shortenIri(term.value, prefixes)
-      : term.termType==='BlankNode' ? `_:${term.value}`
-      : term.termType==='Literal' ? literalToString(term)
-      : term.value;
+    const termToString = (term, prefixes) => {
+      if (term.termType === 'NamedNode') return shortenIri(term.value, prefixes);
+      if (term.termType === 'BlankNode') return `_:${term.value}`;
+      if (term.termType === 'Literal') return literalToString(term);
+      return term.value;
+    };
 
-    async function fetchAllQuads() {
+    const formatTermForDetail = (term, prefixes) => {
+      if (term.termType === 'NamedNode') {
+        const short = shortenIri(term.value, prefixes);
+        const escapedUrl = escapeHtml(term.value);
+        return `<a href="${escapedUrl}" target="_blank" rel="noopener">${escapeHtml(short)}</a>`;
+      }
+      if (term.termType === 'Literal') {
+        const text = formatLiteralForTooltip(term, prefixes);
+        return `<code>${escapeHtml(text)}</code>`;
+      }
+      return `<code>${escapeHtml(termToString(term, prefixes))}</code>`;
+    };
+
+    const buildStatementIndex = (quads) => {
+      const index = new Map();
+      for (const quad of quads) {
+        if (quad.subject.termType !== 'NamedNode') continue;
+        const subject = quad.subject.value;
+        if (!index.has(subject)) index.set(subject, new Map());
+        const predicate = quad.predicate.value;
+        const bucket = index.get(subject);
+        if (!bucket.has(predicate)) bucket.set(predicate, []);
+        bucket.get(predicate).push(quad.object);
+      }
+      return index;
+    };
+
+    const renderNodeDetail = (iri) => {
+      if (!nodesDatasetRef) return;
+      const node = nodesDatasetRef.get(iri);
+      if (!node) return;
+
+      nodeDetailLabelEl.textContent = node.label;
+      const shortIri = shortenIri(iri, currentPrefixes);
+      nodeDetailIriEl.innerHTML = `<a href="${escapeHtml(iri)}" target="_blank" rel="noopener">${escapeHtml(shortIri)}</a>`;
+
+      nodeDetailBodyEl.innerHTML = '';
+      let hasContent = false;
+      const predicates = statementIndex.get(iri);
+      if (predicates && predicates.size) {
+        const sorted = Array.from(predicates.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+        for (const [predicateIri, objects] of sorted) {
+          const row = document.createElement('tr');
+          const th = document.createElement('th');
+          th.textContent = shortenIri(predicateIri, currentPrefixes);
+
+          const td = document.createElement('td');
+          td.innerHTML = objects
+            .map((obj) => `<div>${formatTermForDetail(obj, currentPrefixes)}</div>`)
+            .join('');
+
+          row.append(th, td);
+          nodeDetailBodyEl.appendChild(row);
+        }
+        hasContent = true;
+      }
+
+      nodeDetailEmptyEl.hidden = hasContent;
+      nodeDetailBodyEl.parentElement.style.display = hasContent ? 'table' : 'none';
+      nodeDetailSection.hidden = false;
+    };
+
+    const clearNodeDetail = () => {
+      nodeDetailSection.hidden = true;
+      nodeDetailLabelEl.textContent = '';
+      nodeDetailIriEl.textContent = '';
+      nodeDetailBodyEl.innerHTML = '';
+      nodeDetailBodyEl.parentElement.style.display = 'none';
+      nodeDetailEmptyEl.hidden = true;
+    };
+
+    const fetchAllQuads = async () => {
       const prefixMap = new Map();
       const allQuads = [];
+
       for (const file of TTL_FILES) {
         statusEl.textContent = `正在加载：${file.label} (${file.path})`;
-        const res = await fetch(file.path, { cache: 'no-cache' });
-        if (!res.ok) throw new Error(`无法获取 ${file.path}（HTTP ${res.status}）`);
-        const text = await res.text();
+        const response = await fetch(file.path, { cache: 'no-cache' });
+        if (!response.ok) {
+          throw new Error(`无法获取 ${file.path}（HTTP ${response.status}）`);
+        }
+
+        const text = await response.text();
         mergePrefixArray(prefixMap, extractPrefixes(text));
         const parser = new Parser({ format: 'text/turtle' });
         const quads = parser.parse(text);
         allQuads.push(...quads);
-        // 注意：N3.Parser 的前缀对象是非公开属性；这里仅作为辅助展示使用
         mergePrefixObject(prefixMap, parser._prefixes);
       }
+
       return { quads: allQuads, prefixes: buildPrefixList(prefixMap) };
-    }
+    };
 
-    function renderQuads(quads, prefixes) {
-      const viewerEl = document.getElementById('viewer');
-      if (!quads.length) { statusEl.textContent='本体文件中没有找到任何三元组。'; statusEl.classList.add('error'); return; }
+    const renderQuads = (quads, prefixes) => {
+      if (!quads.length) {
+        statusEl.textContent = '本体文件中没有找到任何三元组。';
+        statusEl.classList.add('error');
+        return;
+      }
+
       const grouped = new Map();
-      for (const q of quads) {
-        const s = termToString(q.subject, prefixes);
-        const p = termToString(q.predicate, prefixes);
-        const o = termToString(q.object, prefixes);
-        if (!grouped.has(s)) grouped.set(s, []);
-        grouped.get(s).push({ predicate: p, object: o });
+      for (const quad of quads) {
+        const subject = termToString(quad.subject, prefixes);
+        const predicate = termToString(quad.predicate, prefixes);
+        const object = termToString(quad.object, prefixes);
+        if (!grouped.has(subject)) grouped.set(subject, []);
+        grouped.get(subject).push({ predicate, object });
       }
+
       viewerEl.innerHTML = '';
-      for (const [subject, statements] of Array.from(grouped.entries()).sort((a,b)=>a[0].localeCompare(b[0]))) {
+      const sortedSubjects = Array.from(grouped.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+      for (const [subject, statements] of sortedSubjects) {
         const details = document.createElement('details');
-        const summary = document.createElement('summary'); summary.textContent = subject; details.appendChild(summary);
-        const table = document.createElement('table'); const tbody = document.createElement('tbody');
-        for (const { predicate, object } of statements.sort((a,b)=>a.predicate.localeCompare(b.predicate))) {
-          const tr = document.createElement('tr');
-          const th = document.createElement('th'); th.textContent = predicate;
-          const td = document.createElement('td'); td.textContent = object;
-          tr.append(th, td); tbody.appendChild(tr);
-        }
-        table.appendChild(tbody); details.appendChild(table); viewerEl.appendChild(details);
-      }
-      document.getElementById('tripleSection').hidden = false;
-    }
+        const summary = document.createElement('summary');
+        summary.textContent = subject;
+        details.appendChild(summary);
 
-    function ensureEntityInfo(map, iri) {
-      if (!map.has(iri)) map.set(iri, { labels:new Set(), descriptions:new Set(), literals:[], types:new Set() });
+        const table = document.createElement('table');
+        const tbody = document.createElement('tbody');
+        const sortedStatements = statements.sort((a, b) => a.predicate.localeCompare(b.predicate));
+        for (const { predicate, object } of sortedStatements) {
+          const row = document.createElement('tr');
+          const th = document.createElement('th');
+          th.textContent = predicate;
+          const td = document.createElement('td');
+          td.textContent = object;
+          row.append(th, td);
+          tbody.appendChild(row);
+        }
+
+        table.appendChild(tbody);
+        details.appendChild(table);
+        viewerEl.appendChild(details);
+      }
+
+      tripleSection.hidden = false;
+    };
+
+    const ensureEntityInfo = (map, iri) => {
+      if (!map.has(iri)) {
+        map.set(iri, { labels: new Set(), descriptions: new Set(), literals: [], types: new Set() });
+      }
       return map.get(iri);
-    }
-    const inferGroup = (types) => TYPE_GROUPS.find(e=>e.matches(types))?.group || 'Default';
+    };
 
-    function buildGraphData(quads, prefixes) {
-      const entities = new Map(), edgeKeys = new Set(), edges = [];
-      for (const q of quads) {
-        if (q.subject.termType==='NamedNode') {
-          const info = ensureEntityInfo(entities, q.subject.value);
-          if (q.predicate.value===RDF_TYPE && q.object.termType==='NamedNode') info.types.add(q.object.value);
-          else if (LABEL_PREDICATES.has(q.predicate.value) && q.object.termType==='Literal') info.labels.add(q.object.value);
-          else if (DESCRIPTION_PREDICATES.has(q.predicate.value) && q.object.termType==='Literal') info.descriptions.add(q.object.value);
-          else if (q.object.termType==='Literal') info.literals.push({ predicate:q.predicate.value, literal:q.object });
+    const inferGroup = (types) => TYPE_GROUPS.find((entry) => entry.matches(types))?.group || 'Default';
+
+    const buildGraphData = (quads, prefixes) => {
+      const entities = new Map();
+      const edgeKeys = new Set();
+      const edges = [];
+
+      for (const quad of quads) {
+        if (quad.subject.termType === 'NamedNode') {
+          const info = ensureEntityInfo(entities, quad.subject.value);
+          if (quad.predicate.value === RDF_TYPE && quad.object.termType === 'NamedNode') {
+            info.types.add(quad.object.value);
+          } else if (LABEL_PREDICATES.has(quad.predicate.value) && quad.object.termType === 'Literal') {
+            info.labels.add(quad.object.value);
+          } else if (DESCRIPTION_PREDICATES.has(quad.predicate.value) && quad.object.termType === 'Literal') {
+            info.descriptions.add(quad.object.value);
+          } else if (quad.object.termType === 'Literal') {
+            info.literals.push({ predicate: quad.predicate.value, literal: quad.object });
+          }
         }
-        if (q.object.termType==='NamedNode') ensureEntityInfo(entities, q.object.value);
+
+        if (quad.object.termType === 'NamedNode') {
+          ensureEntityInfo(entities, quad.object.value);
+        }
       }
-      for (const q of quads) {
-        const {subject, predicate, object} = q;
-        if (subject.termType!=='NamedNode' || object.termType!=='NamedNode') continue;
+
+      for (const quad of quads) {
+        const { subject, predicate, object } = quad;
+        if (subject.termType !== 'NamedNode' || object.termType !== 'NamedNode') continue;
         if (IGNORE_EDGE_PREDICATES.has(predicate.value)) continue;
+
         const key = `${subject.value}|${predicate.value}|${object.value}`;
         if (edgeKeys.has(key)) continue;
         edgeKeys.add(key);
+
         const isUndirected = UNDIRECTED_PREDICATES.has(predicate.value);
         edges.push({
           from: subject.value,
@@ -262,68 +448,95 @@
           font: { align: 'horizontal', strokeWidth: 0 }
         });
       }
+
       const nodes = [];
+      const allowedNodes = new Set();
       for (const [iri, info] of entities.entries()) {
-        const label = info.labels.values().next().value || shortenIri(iri, prefixes);
         const group = inferGroup(info.types);
+        const hasClassLikeType = Array.from(info.types).some((type) => CLASS_LIKE_TYPES.has(type));
+        if (hasClassLikeType || group === 'Default') {
+          continue;
+        }
+
+        const iterator = info.labels.values().next();
+        const label = iterator && !iterator.done ? iterator.value : shortenIri(iri, prefixes);
         const description = Array.from(info.descriptions).join('\n');
-        let tooltip = description ? `<strong>${escapeHtml(description).replace(/\n/g,'<br/>')}</strong>` : '';
+        let tooltip = description ? `<strong>${escapeHtml(description).replace(/\n/g, '<br/>')}</strong>` : '';
         if (info.literals.length) {
-          const rows = info.literals.map(({predicate,literal})=>{
-            const display = TOOLTIP_LITERAL_PREDICATES.get(predicate) || shortenIri(predicate, prefixes);
-            const value = formatLiteralForTooltip(literal, prefixes);
-            return `<div><span>${escapeHtml(display)}</span>：<code>${escapeHtml(value)}</code></div>`;
-          }).join('');
+          const rows = info.literals
+            .map(({ predicate, literal }) => {
+              const display = TOOLTIP_LITERAL_PREDICATES.get(predicate) || shortenIri(predicate, prefixes);
+              const value = formatLiteralForTooltip(literal, prefixes);
+              return `<div><span>${escapeHtml(display)}</span>：<code>${escapeHtml(value)}</code></div>`;
+            })
+            .join('');
           tooltip += tooltip ? `<hr/>${rows}` : rows;
         }
         nodes.push({ id: iri, label, group, title: tooltip || label });
+        allowedNodes.add(iri);
       }
-      return { nodes, edges };
-    }
 
-    function renderGraph(nodes, edges) {
-      const data = { nodes: new DataSet(nodes), edges: new DataSet(edges) };
-      const options = {
+      const filteredEdges = edges.filter(({ from, to }) => allowedNodes.has(from) && allowedNodes.has(to));
+
+      return { nodes, edges: filteredEdges };
+    };
+
+    const renderGraph = (nodes, edges) => {
+      const nodesDataSet = new DataSet(nodes);
+      const edgesDataSet = new DataSet(edges);
+      const network = new Network(networkEl, { nodes: nodesDataSet, edges: edgesDataSet }, {
         layout: { improvedLayout: true },
         physics: {
           stabilization: true,
           solver: 'forceAtlas2Based',
           forceAtlas2Based: { gravitationalConstant: -50, springLength: 120, avoidOverlap: 0.2 }
         },
-        nodes: { shape:'dot', size:18, borderWidth:1, font:{ size:16, color:'#fff' } },
+        nodes: { shape: 'dot', size: 18, borderWidth: 1, font: { size: 16, color: '#fff' } },
         groups: {
-          Person: { color:{ background:'#1b5e20', border:'#134016' } },
-          Place:  { color:{ background:'#1565c0', border:'#0d3c75' } },
-          Title:  { color:{ background:'#8e24aa', border:'#5d1a70' } },
-          Event:  { color:{ background:'#ef6c00', border:'#a14600' } },
-          Default:{ color:{ background:'#546e7a', border:'#37474f' } }
+          Person: { color: { background: '#1b5e20', border: '#134016' } },
+          Place: { color: { background: '#1565c0', border: '#0d3c75' } },
+          Title: { color: { background: '#8e24aa', border: '#5d1a70' } },
+          Event: { color: { background: '#ef6c00', border: '#a14600' } },
+          Default: { color: { background: '#546e7a', border: '#37474f' } }
         },
         edges: {
-          arrows: { to:{ enabled:true, scaleFactor:0.7 } },
-          color: { color:'rgba(33,74,138,0.5)', highlight:'#214a8a' },
-          font:  { size:12, color:'#214a8a', background:'rgba(255,255,255,0.8)' },
-          smooth:{ type:'dynamic' }
+          arrows: { to: { enabled: true, scaleFactor: 0.7 } },
+          color: { color: 'rgba(33,74,138,0.5)', highlight: '#214a8a' },
+          font: { size: 12, color: '#214a8a', background: 'rgba(255,255,255,0.8)' },
+          smooth: { type: 'dynamic' }
         },
-        interaction: { hover:true, tooltipDelay:120, navigationButtons:false, keyboard:false }
-      };
-      new Network(networkEl, data, options);
-      graphSection.hidden = false;
-      return { nodeCount: nodes.length, edgeCount: edges.length };
-    }
+        interaction: { hover: true, tooltipDelay: 120, navigationButtons: false, keyboard: false }
+      });
 
-    async function loadOntology() {
+      graphSection.hidden = false;
+      return { nodeCount: nodes.length, edgeCount: edges.length, network, nodesDataSet };
+    };
+
+    const loadOntology = async () => {
       try {
+        clearNodeDetail();
         const { quads, prefixes } = await fetchAllQuads();
+        currentPrefixes = prefixes;
+        statementIndex = buildStatementIndex(quads);
+
         const graphData = buildGraphData(quads, prefixes);
-        const stats = renderGraph(graphData.nodes, graphData.edges);
+        const { nodeCount, edgeCount, network, nodesDataSet } = renderGraph(graphData.nodes, graphData.edges);
+        networkRef = network;
+        nodesDatasetRef = nodesDataSet;
+
+        networkRef.on('selectNode', ({ nodes }) => {
+          if (nodes.length) renderNodeDetail(nodes[0]);
+        });
+        networkRef.on('deselectNode', clearNodeDetail);
+
         renderQuads(quads, prefixes);
-        statusEl.textContent = `已加载 ${TTL_FILES.length} 个文件，总计 ${quads.length} 条三元组，节点 ${stats.nodeCount} 个，关系 ${stats.edgeCount} 条。`;
-      } catch (e) {
-        console.error(e);
-        statusEl.textContent = `加载失败：${e.message}`;
+        statusEl.textContent = `已加载 ${TTL_FILES.length} 个文件，总计 ${quads.length} 条三元组，节点 ${nodeCount} 个，关系 ${edgeCount} 条。`;
+      } catch (error) {
+        console.error(error);
+        statusEl.textContent = `加载失败：${error.message}`;
         statusEl.classList.add('error');
       }
-    }
+    };
 
     loadOntology();
   </script>
