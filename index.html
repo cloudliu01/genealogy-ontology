@@ -4,6 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Genealogy Ontology Explorer</title>
+
+  <!-- 用 esm.sh 的 CSS，避免 jsDelivr/SRI 问题 -->
+  <link rel="stylesheet" href="https://esm.sh/vis-network@9.1.2/styles/vis-network.min.css" />
   <style>
     :root {
       color-scheme: light dark;
@@ -11,267 +14,316 @@
       background-color: #f5f5f5;
       color: #222;
     }
-
-    body {
-      margin: 0;
-      background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(235,239,250,0.9));
-      min-height: 100vh;
-    }
-
-    .container {
-      max-width: 960px;
-      margin: 0 auto;
-      padding: 2rem 1.5rem 4rem;
-    }
-
-    header h1 {
-      margin: 0 0 0.5rem;
-      font-size: clamp(1.8rem, 3vw, 2.4rem);
-      color: #214a8a;
-    }
-
-    header p {
-      margin: 0 0 1.5rem;
-      line-height: 1.6;
-      color: #333;
-    }
-
-    .status {
-      padding: 0.75rem 1rem;
-      border-radius: 0.75rem;
-      background: rgba(33, 74, 138, 0.08);
-      color: #214a8a;
-      margin-bottom: 1.5rem;
-      font-weight: 600;
-    }
-
-    .status.error {
-      background: rgba(200, 30, 30, 0.08);
-      color: #9c1919;
-    }
-
-    .viewer details {
-      border-radius: 0.75rem;
-      background: rgba(255, 255, 255, 0.9);
-      margin-bottom: 1rem;
-      box-shadow: 0 12px 32px -16px rgba(33, 74, 138, 0.35);
-      overflow: hidden;
-    }
-
-    .viewer summary {
-      cursor: pointer;
-      font-weight: 600;
-      padding: 0.9rem 1.2rem;
-      background: linear-gradient(90deg, rgba(33, 74, 138, 0.16), rgba(33, 74, 138, 0));
-      outline: none;
-    }
-
-    .viewer summary::-webkit-details-marker {
-      display: none;
-    }
-
-    .viewer summary::before {
-      content: '▶';
-      display: inline-block;
-      margin-right: 0.6rem;
-      transition: transform 0.2s ease;
-    }
-
-    details[open] > summary::before {
-      transform: rotate(90deg);
-    }
-
-    table {
-      border-collapse: collapse;
-      width: 100%;
-    }
-
-    th, td {
-      text-align: left;
-      padding: 0.6rem 1.2rem;
-      border-top: 1px solid rgba(33, 74, 138, 0.08);
-      vertical-align: top;
-      font-family: "Fira Code", "Cascadia Code", Consolas, monospace;
-      font-size: 0.95rem;
-    }
-
-    th {
-      width: 30%;
-      color: #214a8a;
-      font-weight: 600;
-    }
-
-    @media (max-width: 640px) {
-      th, td {
-        display: block;
-        width: 100%;
-        padding: 0.5rem 0.9rem;
-      }
-
-      th {
-        border: none;
-        padding-bottom: 0;
-        font-size: 1rem;
-      }
-
-      td {
-        padding-top: 0.2rem;
-        padding-bottom: 0.9rem;
-        font-size: 0.95rem;
-      }
-    }
+    body { margin: 0; background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(235,239,250,0.9)); min-height: 100vh; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+    header h1 { margin: 0 0 0.5rem; font-size: clamp(1.8rem, 3vw, 2.4rem); color: #214a8a; }
+    header p { margin: 0 0 1.5rem; line-height: 1.6; color: #333; }
+    .status { padding: 0.75rem 1rem; border-radius: 0.75rem; background: rgba(33, 74, 138, 0.08); color: #214a8a; margin-bottom: 1.5rem; font-weight: 600; }
+    .status.error { background: rgba(200, 30, 30, 0.08); color: #9c1919; }
+    section { margin-bottom: 2.5rem; }
+    .section-title { margin: 0 0 0.75rem; font-size: 1.4rem; color: #214a8a; }
+    .graph-info { margin: 0 0 1rem; color: #444; font-size: 0.95rem; line-height: 1.5; }
+    #network { height: min(70vh, 620px); border-radius: 0.75rem; background: rgba(255, 255, 255, 0.92); box-shadow: 0 20px 36px -18px rgba(33, 74, 138, 0.35); border: 1px solid rgba(33, 74, 138, 0.1); }
+    .legend { display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; margin: 0.75rem 0 0; font-size: 0.9rem; color: #333; }
+    .legend span { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.6rem; border-radius: 0.5rem; background: rgba(33, 74, 138, 0.08); }
+    .legend i { display: inline-block; width: 0.75rem; height: 0.75rem; border-radius: 50%; }
+    .legend .person { background: #1b5e20; } .legend .place { background: #1565c0; } .legend .title { background: #8e24aa; } .legend .event { background: #ef6c00; } .legend .default { background: #546e7a; }
+    .viewer details { border-radius: 0.75rem; background: rgba(255, 255, 255, 0.9); margin-bottom: 1rem; box-shadow: 0 12px 32px -16px rgba(33, 74, 138, 0.35); overflow: hidden; }
+    .viewer summary { cursor: pointer; font-weight: 600; padding: 0.9rem 1.2rem; background: linear-gradient(90deg, rgba(33, 74, 138, 0.16), rgba(33, 74, 138, 0)); outline: none; }
+    .viewer summary::-webkit-details-marker { display: none; }
+    .viewer summary::before { content: '▶'; display: inline-block; margin-right: 0.6rem; transition: transform 0.2s ease; }
+    details[open] > summary::before { transform: rotate(90deg); }
+    table { border-collapse: collapse; width: 100%; background: rgba(255, 255, 255, 0.94); }
+    th, td { text-align: left; padding: 0.6rem 1.2rem; border-top: 1px solid rgba(33, 74, 138, 0.08); vertical-align: top; font-family: "Fira Code", "Cascadia Code", Consolas, monospace; font-size: 0.95rem; }
+    th { width: 30%; color: #214a8a; font-weight: 600; }
+    @media (max-width: 640px) { th, td { display: block; width: 100%; padding: 0.5rem 0.9rem; } th { border: none; padding-bottom: 0; font-size: 1rem; } td { padding-top: 0.2rem; padding-bottom: 0.9rem; font-size: 0.95rem; } }
   </style>
 </head>
 <body>
   <main class="container">
     <header>
       <h1>Genealogy Ontology Explorer</h1>
-      <p>从本地 <code>index.ttl</code> 文件加载并解析家谱本体。点击每个实体可以展开查看其属性。</p>
+      <p>一次性加载本体定义、共享词汇与人物实例，构建可交互关系图并保留原始三元组浏览视图。</p>
     </header>
+
     <div id="status" class="status">正在加载本体数据…</div>
-    <section id="viewer" class="viewer" hidden></section>
+
+    <section id="graphSection" hidden>
+      <h2 class="section-title">关系图谱</h2>
+      <p class="graph-info">拖拽节点探索人物、地点与头衔之间的联系，滚轮缩放，点击节点可查看工具提示中的主要属性。</p>
+      <div id="network"></div>
+      <div class="legend">
+        <span><i class="person"></i>人物</span>
+        <span><i class="place"></i>地点</span>
+        <span><i class="title"></i>头衔</span>
+        <span><i class="event"></i>事件</span>
+        <span><i class="default"></i>其他</span>
+      </div>
+    </section>
+
+    <section id="tripleSection" hidden>
+      <h2 class="section-title">三元组分组</h2>
+      <section id="viewer" class="viewer"></section>
+    </section>
   </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/n3@1.17.4/browser/n3.min.js" crossorigin="anonymous"></script>
+  <!-- ✅ 用 ESModule 方式加载库，避免 window.N3/window.vis 未定义 -->
   <script type="module">
-    const ttlPath = 'index.ttl';
+    import * as N3 from "https://esm.sh/n3@1.17.4";
+    import { Network } from "https://esm.sh/vis-network@9.1.2";
+    import { DataSet } from "https://esm.sh/vis-data@7.1.5";
+
+    const TTL_FILES = [
+      { path: 'index.ttl', label: 'Ontology definition' },
+      { path: 'vocab/places.ttl', label: 'Shared places' },
+      { path: 'vocab/titles.ttl', label: 'Shared titles' },
+      { path: 'people/liu_bei.ttl', label: 'Liu Bei' },
+      { path: 'people/liu_shan.ttl', label: 'Liu Shan' }
+    ];
+
     const statusEl = document.getElementById('status');
     const viewerEl = document.getElementById('viewer');
+    const graphSection = document.getElementById('graphSection');
+    const tripleSection = document.getElementById('tripleSection');
+    const networkEl = document.getElementById('network');
 
-    if (!window.N3) {
-      statusEl.textContent = '无法加载 N3 解析器，请检查网络或 CDN 配置。';
-      statusEl.classList.add('error');
-      throw new Error('N3 parser failed to load');
-    }
+    const { Parser } = N3;
 
-    const { Parser } = window.N3;
+    const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
+    const RDFS_LABEL = 'http://www.w3.org/2000/01/rdf-schema#label';
+
+    const LABEL_PREDICATES = new Set([
+      RDFS_LABEL,
+      'http://schema.org/name',
+      'http://xmlns.com/foaf/0.1/name'
+    ]);
+
+    const DESCRIPTION_PREDICATES = new Set([
+      'http://schema.org/description',
+      'http://purl.org/dc/terms/description'
+    ]);
+
+    const IGNORE_EDGE_PREDICATES = new Set([
+      RDF_TYPE,
+      RDFS_LABEL,
+      'http://schema.org/name',
+      'http://xmlns.com/foaf/0.1/name',
+      'http://schema.org/description',
+      'http://purl.org/dc/terms/description',
+      'http://schema.org/familyName',
+      'http://schema.org/givenName',
+      'http://schema.org/roleName'
+    ]);
+
+    // 🔧 用页面的 base IRI 动态拼出你的命名空间（避免写死用户名）
+    const BASE = new URL('./', document.baseURI).href;
+    const NS = (local) => BASE + local;
+
+    const UNDIRECTED_PREDICATES = new Set([
+      NS('spouse'),
+      NS('swornBrotherOf')
+    ]);
+
+    const TOOLTIP_LITERAL_PREDICATES = new Map([
+      ['http://schema.org/birthDate', '出生时间'],
+      ['http://schema.org/deathDate', '去世时间'],
+      ['http://schema.org/startDate', '开始'],
+      ['http://schema.org/endDate', '结束'],
+      [NS('courtesyName'), '字'],
+      [NS('templeName'), '庙号'],
+      [NS('posthumousTitleText'), '谥号'],
+      [NS('titleName'), '头衔名称'],
+      [NS('lifeSpanText'), '寿命'],
+      ['http://schema.org/roleName', '称谓']
+    ]);
+
+    const TYPE_GROUPS = [
+      { group: 'Person', matches: (types) => types.has(NS('Person')) || types.has('http://schema.org/Person') },
+      { group: 'Place',  matches: (types) => types.has(NS('Place'))  || types.has('http://schema.org/Place')  },
+      { group: 'Title',  matches: (types) => types.has(NS('Title'))  || types.has('http://schema.org/Role')   },
+      { group: 'Event',
+        matches: (types) => Array.from(types).some((iri) => iri.startsWith(BASE) && /Event|Birth|Death|Burial|Marriage/.test(iri))
+                               || types.has('http://schema.org/Event') }
+    ];
 
     const prefixRegex = /@prefix\s+([A-Za-z][\w-]*):\s*<([^>]+)>\s*\./g;
-
-    const extractPrefixes = (text) => {
-      const prefixes = [];
-      let match;
-      while ((match = prefixRegex.exec(text)) !== null) {
-        prefixes.push({ prefix: match[1], iri: match[2] });
-      }
-      return prefixes.sort((a, b) => b.iri.length - a.iri.length);
-    };
+    const extractPrefixes = (text) => { const out=[]; let m; while ((m=prefixRegex.exec(text))) out.push({prefix:m[1], iri:m[2]}); return out; };
+    const mergePrefixArray = (map, arr)=>arr?.forEach(({prefix,iri})=>{ if(!map.has(prefix)) map.set(prefix,iri); });
+    const mergePrefixObject = (map, obj)=>obj && Object.entries(obj).forEach(([p,i])=>{ if(!map.has(p)) map.set(p,i); });
+    const buildPrefixList = (map)=>Array.from(map.entries()).map(([prefix,iri])=>({prefix,iri})).sort((a,b)=>b.iri.length-a.iri.length);
 
     const shortenIri = (iri, prefixes) => {
-      for (const { prefix, iri: base } of prefixes) {
-        if (iri.startsWith(base)) {
-          const suffix = iri.slice(base.length);
-          return suffix ? `${prefix}:${suffix}` : `${prefix}:`;
-        }
-      }
+      for (const { prefix, iri: base } of prefixes) if (iri.startsWith(base)) return (iri.slice(base.length) ? `${prefix}:${iri.slice(base.length)}` : `${prefix}:`);
       return `<${iri}>`;
     };
+    const literalToString = (lit) => lit.language ? `"${lit.value}"@${lit.language}`
+      : (lit.datatype && lit.datatype.value && lit.datatype.value!=='http://www.w3.org/2001/XMLSchema#string')
+        ? `"${lit.value}"^^<${lit.datatype.value}>` : `"${lit.value}"`;
+    const escapeHtml = (v)=>v.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
-    const literalToString = (literal) => {
-      const quoted = `"${literal.value}"`;
-      if (literal.language) {
-        return `${quoted}@${literal.language}`;
-      }
-      const datatype = literal.datatype && literal.datatype.value;
-      if (datatype && datatype !== 'http://www.w3.org/2001/XMLSchema#string') {
-        return `${quoted}^^<${datatype}>`;
-      }
-      return quoted;
+    const XSD_STRING = 'http://www.w3.org/2001/XMLSchema#string';
+    const DATE_LIKE_TYPES = new Set([
+      'http://www.w3.org/2001/XMLSchema#gYear',
+      'http://www.w3.org/2001/XMLSchema#gYearMonth',
+      'http://www.w3.org/2001/XMLSchema#date',
+      'http://www.w3.org/2001/XMLSchema#dateTime'
+    ]);
+
+    const formatLiteralForTooltip = (lit, prefixes) => {
+      const dt = lit.datatype && lit.datatype.value;
+      if (lit.language) return `${lit.value} @${lit.language}`;
+      if (!dt || dt===XSD_STRING || DATE_LIKE_TYPES.has(dt)) return lit.value;
+      return `${lit.value}^^${shortenIri(dt, prefixes)}`;
     };
 
-    const termToString = (term, prefixes) => {
-      switch (term.termType) {
-        case 'NamedNode':
-          return shortenIri(term.value, prefixes);
-        case 'BlankNode':
-          return `_:${term.value}`;
-        case 'Literal':
-          return literalToString(term);
-        default:
-          return term.value;
-      }
-    };
+    const termToString = (term, prefixes) =>
+      term.termType==='NamedNode' ? shortenIri(term.value, prefixes)
+      : term.termType==='BlankNode' ? `_:${term.value}`
+      : term.termType==='Literal' ? literalToString(term)
+      : term.value;
 
-    const renderQuads = (quads, prefixes) => {
-      if (!quads.length) {
-        statusEl.textContent = '本体文件中没有找到任何三元组。';
-        return;
-      }
-
-      const grouped = new Map();
-      for (const quad of quads) {
-        const subject = termToString(quad.subject, prefixes);
-        const predicate = termToString(quad.predicate, prefixes);
-        const object = termToString(quad.object, prefixes);
-        if (!grouped.has(subject)) {
-          grouped.set(subject, []);
-        }
-        grouped.get(subject).push({ predicate, object });
-      }
-
-      const subjects = Array.from(grouped.keys()).sort((a, b) => a.localeCompare(b));
-      viewerEl.innerHTML = '';
-
-      for (const subject of subjects) {
-        const details = document.createElement('details');
-        details.open = true;
-
-        const summary = document.createElement('summary');
-        summary.textContent = subject;
-        details.appendChild(summary);
-
-        const table = document.createElement('table');
-        const tbody = document.createElement('tbody');
-
-        const statements = grouped.get(subject).sort((a, b) => a.predicate.localeCompare(b.predicate));
-        for (const { predicate, object } of statements) {
-          const row = document.createElement('tr');
-          const th = document.createElement('th');
-          th.textContent = predicate;
-          const td = document.createElement('td');
-          td.textContent = object;
-          row.appendChild(th);
-          row.appendChild(td);
-          tbody.appendChild(row);
-        }
-
-        table.appendChild(tbody);
-        details.appendChild(table);
-        viewerEl.appendChild(details);
-      }
-
-      statusEl.textContent = `已加载 ${quads.length} 条三元组，包含 ${subjects.length} 个实体。`;
-      viewerEl.hidden = false;
-    };
-
-    const loadOntology = async () => {
-      try {
-        const response = await fetch(ttlPath, { cache: 'no-cache' });
-        if (!response.ok) {
-          throw new Error(`无法获取 ${ttlPath}（HTTP ${response.status}）`);
-        }
-
-        const text = await response.text();
-        const prefixes = extractPrefixes(text);
+    async function fetchAllQuads() {
+      const prefixMap = new Map();
+      const allQuads = [];
+      for (const file of TTL_FILES) {
+        statusEl.textContent = `正在加载：${file.label} (${file.path})`;
+        const res = await fetch(file.path, { cache: 'no-cache' });
+        if (!res.ok) throw new Error(`无法获取 ${file.path}（HTTP ${res.status}）`);
+        const text = await res.text();
+        mergePrefixArray(prefixMap, extractPrefixes(text));
         const parser = new Parser({ format: 'text/turtle' });
         const quads = parser.parse(text);
+        allQuads.push(...quads);
+        // 注意：N3.Parser 的前缀对象是非公开属性；这里仅作为辅助展示使用
+        mergePrefixObject(prefixMap, parser._prefixes);
+      }
+      return { quads: allQuads, prefixes: buildPrefixList(prefixMap) };
+    }
 
-        if (parser._prefixes) {
-          Object.entries(parser._prefixes).forEach(([prefix, iri]) => {
-            if (!prefixes.some((item) => item.prefix === prefix)) {
-              prefixes.push({ prefix, iri });
-            }
-          });
-          prefixes.sort((a, b) => b.iri.length - a.iri.length);
+    function renderQuads(quads, prefixes) {
+      const viewerEl = document.getElementById('viewer');
+      if (!quads.length) { statusEl.textContent='本体文件中没有找到任何三元组。'; statusEl.classList.add('error'); return; }
+      const grouped = new Map();
+      for (const q of quads) {
+        const s = termToString(q.subject, prefixes);
+        const p = termToString(q.predicate, prefixes);
+        const o = termToString(q.object, prefixes);
+        if (!grouped.has(s)) grouped.set(s, []);
+        grouped.get(s).push({ predicate: p, object: o });
+      }
+      viewerEl.innerHTML = '';
+      for (const [subject, statements] of Array.from(grouped.entries()).sort((a,b)=>a[0].localeCompare(b[0]))) {
+        const details = document.createElement('details');
+        const summary = document.createElement('summary'); summary.textContent = subject; details.appendChild(summary);
+        const table = document.createElement('table'); const tbody = document.createElement('tbody');
+        for (const { predicate, object } of statements.sort((a,b)=>a.predicate.localeCompare(b.predicate))) {
+          const tr = document.createElement('tr');
+          const th = document.createElement('th'); th.textContent = predicate;
+          const td = document.createElement('td'); td.textContent = object;
+          tr.append(th, td); tbody.appendChild(tr);
         }
+        table.appendChild(tbody); details.appendChild(table); viewerEl.appendChild(details);
+      }
+      document.getElementById('tripleSection').hidden = false;
+    }
 
+    function ensureEntityInfo(map, iri) {
+      if (!map.has(iri)) map.set(iri, { labels:new Set(), descriptions:new Set(), literals:[], types:new Set() });
+      return map.get(iri);
+    }
+    const inferGroup = (types) => TYPE_GROUPS.find(e=>e.matches(types))?.group || 'Default';
+
+    function buildGraphData(quads, prefixes) {
+      const entities = new Map(), edgeKeys = new Set(), edges = [];
+      for (const q of quads) {
+        if (q.subject.termType==='NamedNode') {
+          const info = ensureEntityInfo(entities, q.subject.value);
+          if (q.predicate.value===RDF_TYPE && q.object.termType==='NamedNode') info.types.add(q.object.value);
+          else if (LABEL_PREDICATES.has(q.predicate.value) && q.object.termType==='Literal') info.labels.add(q.object.value);
+          else if (DESCRIPTION_PREDICATES.has(q.predicate.value) && q.object.termType==='Literal') info.descriptions.add(q.object.value);
+          else if (q.object.termType==='Literal') info.literals.push({ predicate:q.predicate.value, literal:q.object });
+        }
+        if (q.object.termType==='NamedNode') ensureEntityInfo(entities, q.object.value);
+      }
+      for (const q of quads) {
+        const {subject, predicate, object} = q;
+        if (subject.termType!=='NamedNode' || object.termType!=='NamedNode') continue;
+        if (IGNORE_EDGE_PREDICATES.has(predicate.value)) continue;
+        const key = `${subject.value}|${predicate.value}|${object.value}`;
+        if (edgeKeys.has(key)) continue;
+        edgeKeys.add(key);
+        const isUndirected = UNDIRECTED_PREDICATES.has(predicate.value);
+        edges.push({
+          from: subject.value,
+          to: object.value,
+          label: shortenIri(predicate.value, prefixes),
+          arrows: isUndirected ? '' : 'to',
+          smooth: true,
+          font: { align: 'horizontal', strokeWidth: 0 }
+        });
+      }
+      const nodes = [];
+      for (const [iri, info] of entities.entries()) {
+        const label = info.labels.values().next().value || shortenIri(iri, prefixes);
+        const group = inferGroup(info.types);
+        const description = Array.from(info.descriptions).join('\n');
+        let tooltip = description ? `<strong>${escapeHtml(description).replace(/\n/g,'<br/>')}</strong>` : '';
+        if (info.literals.length) {
+          const rows = info.literals.map(({predicate,literal})=>{
+            const display = TOOLTIP_LITERAL_PREDICATES.get(predicate) || shortenIri(predicate, prefixes);
+            const value = formatLiteralForTooltip(literal, prefixes);
+            return `<div><span>${escapeHtml(display)}</span>：<code>${escapeHtml(value)}</code></div>`;
+          }).join('');
+          tooltip += tooltip ? `<hr/>${rows}` : rows;
+        }
+        nodes.push({ id: iri, label, group, title: tooltip || label });
+      }
+      return { nodes, edges };
+    }
+
+    function renderGraph(nodes, edges) {
+      const data = { nodes: new DataSet(nodes), edges: new DataSet(edges) };
+      const options = {
+        layout: { improvedLayout: true },
+        physics: {
+          stabilization: true,
+          solver: 'forceAtlas2Based',
+          forceAtlas2Based: { gravitationalConstant: -50, springLength: 120, avoidOverlap: 0.2 }
+        },
+        nodes: { shape:'dot', size:18, borderWidth:1, font:{ size:16, color:'#fff' } },
+        groups: {
+          Person: { color:{ background:'#1b5e20', border:'#134016' } },
+          Place:  { color:{ background:'#1565c0', border:'#0d3c75' } },
+          Title:  { color:{ background:'#8e24aa', border:'#5d1a70' } },
+          Event:  { color:{ background:'#ef6c00', border:'#a14600' } },
+          Default:{ color:{ background:'#546e7a', border:'#37474f' } }
+        },
+        edges: {
+          arrows: { to:{ enabled:true, scaleFactor:0.7 } },
+          color: { color:'rgba(33,74,138,0.5)', highlight:'#214a8a' },
+          font:  { size:12, color:'#214a8a', background:'rgba(255,255,255,0.8)' },
+          smooth:{ type:'dynamic' }
+        },
+        interaction: { hover:true, tooltipDelay:120, navigationButtons:false, keyboard:false }
+      };
+      new Network(networkEl, data, options);
+      graphSection.hidden = false;
+      return { nodeCount: nodes.length, edgeCount: edges.length };
+    }
+
+    async function loadOntology() {
+      try {
+        const { quads, prefixes } = await fetchAllQuads();
+        const graphData = buildGraphData(quads, prefixes);
+        const stats = renderGraph(graphData.nodes, graphData.edges);
         renderQuads(quads, prefixes);
-      } catch (error) {
-        console.error(error);
-        statusEl.textContent = `加载失败：${error.message}`;
+        statusEl.textContent = `已加载 ${TTL_FILES.length} 个文件，总计 ${quads.length} 条三元组，节点 ${stats.nodeCount} 个，关系 ${stats.edgeCount} 条。`;
+      } catch (e) {
+        console.error(e);
+        statusEl.textContent = `加载失败：${e.message}`;
         statusEl.classList.add('error');
       }
-    };
+    }
 
     loadOntology();
   </script>

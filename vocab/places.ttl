@@ -1,0 +1,33 @@
+@prefix gen:    <https://cloudliu01.github.io/genealogy-ontology/> .
+@prefix schema: <http://schema.org/> .
+@prefix rdfs:   <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:    <http://www.w3.org/2001/XMLSchema#> .
+@prefix place:  <https://cloudliu01.github.io/genealogy-ontology/vocab/places/> .
+
+place:ZhuoCommandery
+    a gen:Place ;
+    rdfs:label "Zhuo Commandery"@en , "涿郡"@zh ;
+    schema:description "Commandery in present-day Zhuozhou, Hebei; recorded as Liu Bei's birthplace."@en ;
+    schema:sameAs <https://zh.wikipedia.org/wiki/%E6%B6%BF%E9%83%A1> ,
+                 <https://dbpedia.org/resource/Zhuo_Commandery> .
+
+place:Chengdu
+    a gen:Place ;
+    rdfs:label "Chengdu"@en , "成都"@zh ;
+    schema:description "Capital of Shu Han during the Three Kingdoms period; seat of government for Liu Bei and Liu Shan."@en ;
+    schema:sameAs <https://zh.wikipedia.org/wiki/%E6%88%90%E9%83%BD> ,
+                 <https://dbpedia.org/resource/Chengdu> .
+
+place:Luoyang
+    a gen:Place ;
+    rdfs:label "Luoyang"@en , "洛阳"@zh ;
+    schema:description "Historic capital of multiple Chinese dynasties; Liu Shan resided here after surrendering to Wei."@en ;
+    schema:sameAs <https://zh.wikipedia.org/wiki/%E6%B4%9B%E9%98%B3> ,
+                 <https://dbpedia.org/resource/Luoyang> .
+
+place:HuilingMausoleum
+    a gen:Place ;
+    rdfs:label "Huiling Mausoleum"@en , "惠陵"@zh ;
+    schema:description "Mausoleum of Emperor Zhaolie (Liu Bei), located within the Wuhou Shrine complex in Chengdu."@en ;
+    schema:containedInPlace place:Chengdu ;
+    schema:sameAs <https://zh.wikipedia.org/wiki/%E6%83%A0%E9%99%B5_(%E8%9C%80%E6%BC%A2)> .

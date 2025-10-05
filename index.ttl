@@ -1,46 +1,260 @@
-@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix owl: <http://www.w3.org/2002/07/owl#> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix gen:    <https://cloudliu01.github.io/genealogy-ontology/> .
 @prefix schema: <http://schema.org/> .
-@prefix gen: <https://cloudliu01.github.io/genealogy-ontology/> .
+@prefix foaf:   <http://xmlns.com/foaf/0.1/> .
+@prefix rdf:    <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:   <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl:    <http://www.w3.org/2002/07/owl#> .
+@prefix xsd:    <http://www.w3.org/2001/XMLSchema#> .
+
+#################################################################
+# Chinese Genealogy Ontology (基础草案)
+# 兼容 Schema.org / FOAF，并扩展中文族谱常见要素
+# 版本：v0.1  | 许可证：CC BY 4.0 建议
+#################################################################
 
 <https://cloudliu01.github.io/genealogy-ontology/>
     a owl:Ontology ;
-    rdfs:label "Chinese Genealogy Ontology" ;
-    rdfs:comment "A simple ontology for describing Chinese family lineages and historical biographical data." ;
-    owl:versionInfo "v0.1" .
+    rdfs:label "Chinese Genealogy Ontology"@en , "中文家谱本体"@zh ;
+    rdfs:comment "A lightweight ontology for modeling Chinese genealogy, compatible with Schema.org/FOAF and extended with courtesy/temple/posthumous names, lineage generations, branches and burial info."@en ;
+    owl:versionInfo "v0.1" ;
+    rdfs:seeAlso schema:Person , foaf:Person , schema:Event , schema:Place .
 
-### 基本类 ###
+############################
+# 1) 核心类（Classes）
+############################
+
 gen:Person a owl:Class ;
-    rdfs:label "Person" ;
-    rdfs:subClassOf schema:Person .
+    rdfs:subClassOf schema:Person ;
+    rdfs:label "Person"@en , "人物"@zh ;
+    rdfs:comment "An individual appearing in the genealogy (ancestor, descendant, spouse, etc.)."@en .
 
 gen:Place a owl:Class ;
-    rdfs:label "Place" ;
-    rdfs:subClassOf schema:Place .
+    rdfs:subClassOf schema:Place ;
+    rdfs:label "Place"@en , "地点"@zh ;
+    rdfs:comment "Geographic place such as birthplace, burial site, native place."@en .
 
 gen:Event a owl:Class ;
-    rdfs:label "Event" ;
-    rdfs:subClassOf schema:Event .
+    rdfs:subClassOf schema:Event ;
+    rdfs:label "Event"@en , "事件"@zh ;
+    rdfs:comment "Generic event used for births, deaths, marriages, burials, migrations, titles, battles, etc."@en .
 
-### 常用属性 ###
+gen:Birth a owl:Class ;
+    rdfs:subClassOf gen:Event ;
+    rdfs:label "Birth"@en , "出生"@zh .
+
+gen:Death a owl:Class ;
+    rdfs:subClassOf gen:Event ;
+    rdfs:label "Death"@en , "去世"@zh .
+
+gen:Marriage a owl:Class ;
+    rdfs:subClassOf gen:Event ;
+    rdfs:label "Marriage"@en , "婚姻"@zh .
+
+gen:Burial a owl:Class ;
+    rdfs:subClassOf gen:Event ;
+    rdfs:label "Burial"@en , "安葬"@zh .
+
+gen:Title a owl:Class ;
+    rdfs:subClassOf schema:Role ;
+    rdfs:label "Title/Role"@en , "头衔/官职/谥号"@zh ;
+    rdfs:comment "Imperial title, office, peerage, posthumous title, etc."@en .
+
+gen:Generation a owl:Class ;
+    rdfs:label "Generation"@en , "世代"@zh ;
+    rdfs:comment "Lineage generation indicator, e.g., '第十七世'."@en .
+
+gen:FamilyBranch a owl:Class ;
+    rdfs:subClassOf schema:Organization ;
+    rdfs:label "Family Branch"@en , "家族支系"@zh ;
+    rdfs:comment "A branch/lineage/sub-line within the larger family."@en .
+
+gen:GenealogyRecord a owl:Class ;
+    rdfs:subClassOf schema:CreativeWork ;
+    rdfs:label "Genealogy Record"@en , "家谱记录"@zh ;
+    rdfs:comment "A documentary record/entry in the genealogy."@en .
+
+########################################
+# 2) 人物相关的数据属性（Datatype Properties）
+########################################
+
 gen:courtesyName a owl:DatatypeProperty ;
-    rdfs:label "courtesy name (字)" ;
+    rdfs:label "courtesy name (字)"@en , "字"@zh ;
+    rdfs:domain gen:Person ;
+    rdfs:range xsd:string ;
+    rdfs:comment "Traditional courtesy name (字)."@en ;
+    rdfs:subPropertyOf schema:alternateName .
+
+gen:artName a owl:DatatypeProperty ;
+    rdfs:label "art name (號)"@en , "号"@zh ;
+    rdfs:domain gen:Person ;
+    rdfs:range xsd:string ;
+    rdfs:comment "Art name/style name (號)."@en ;
+    rdfs:subPropertyOf schema:alternateName .
+
+gen:templeName a owl:DatatypeProperty ;
+    rdfs:label "temple name (廟號)"@en , "庙号"@zh ;
     rdfs:domain gen:Person ;
     rdfs:range xsd:string .
 
-gen:posthumousTitle a owl:DatatypeProperty ;
-    rdfs:label "posthumous title (谥号)" ;
+gen:posthumousTitleText a owl:DatatypeProperty ;
+    rdfs:label "posthumous title text (谥号文本)"@en , "谥号文本"@zh ;
     rdfs:domain gen:Person ;
-    rdfs:range xsd:string .
+    rdfs:range xsd:string ;
+    rdfs:comment "Posthumous title as plain text when not modeled as a Title instance."@en .
+
+gen:lifeSpanText a owl:DatatypeProperty ;
+    rdfs:label "lifespan text"@en , "寿命文本"@zh ;
+    rdfs:domain gen:Person ;
+    rdfs:range xsd:string ;
+    rdfs:comment "Free-text lifespan e.g., '享年六十二'."@en .
+
+########################################
+# 3) 人物相关的对象属性（Object Properties）
+########################################
+
+# 亲属关系
+gen:parent a owl:ObjectProperty ;
+    rdfs:label "parent"@en , "父/母"@zh ;
+    rdfs:domain gen:Person ;
+    rdfs:range gen:Person ;
+    rdfs:subPropertyOf schema:parent .
 
 gen:father a owl:ObjectProperty ;
-    rdfs:label "father" ;
-    rdfs:domain gen:Person ;
-    rdfs:range gen:Person .
+    rdfs:label "father"@en , "父亲"@zh ;
+    rdfs:domain gen:Person ; rdfs:range gen:Person ;
+    rdfs:subPropertyOf gen:parent .
 
-gen:children a owl:ObjectProperty ;
-    rdfs:label "children" ;
-    rdfs:domain gen:Person ;
-    rdfs:range gen:Person .
+gen:mother a owl:ObjectProperty ;
+    rdfs:label "mother"@en , "母亲"@zh ;
+    rdfs:domain gen:Person ; rdfs:range gen:Person ;
+    rdfs:subPropertyOf gen:parent .
+
+gen:child a owl:ObjectProperty ;
+    rdfs:label "child"@en , "子女"@zh ;
+    rdfs:domain gen:Person ; rdfs:range gen:Person ;
+    owl:inverseOf gen:parent ;
+    rdfs:subPropertyOf schema:children .
+
+# 配偶/结拜
+gen:spouse a owl:ObjectProperty , owl:SymmetricProperty ;
+    rdfs:label "spouse"@en , "配偶"@zh ;
+    rdfs:domain gen:Person ; rdfs:range gen:Person ;
+    rdfs:subPropertyOf schema:spouse .
+
+gen:swornBrotherOf a owl:ObjectProperty , owl:SymmetricProperty ;
+    rdfs:label "sworn sibling of"@en , "结义兄弟/姐妹"@zh ;
+    rdfs:domain gen:Person ; rdfs:range gen:Person ;
+    rdfs:comment "Sworn brother/sister relationship (e.g., 刘备-关羽-张飞)."@en .
+
+# 身份/籍贯/安葬
+gen:holdsTitle a owl:ObjectProperty ;
+    rdfs:label "holds title/role"@en , "拥有头衔/官职"@zh ;
+    rdfs:domain gen:Person ; rdfs:range gen:Title ;
+    rdfs:comment "Links a person to a Title/Role they held."@en .
+
+gen:nativePlace a owl:ObjectProperty ;
+    rdfs:label "native place"@en , "籍贯"@zh ;
+    rdfs:domain gen:Person ; rdfs:range gen:Place ;
+    rdfs:subPropertyOf schema:homeLocation .
+
+gen:buriedIn a owl:ObjectProperty ;
+    rdfs:label "buried in"@en , "葬于"@zh ;
+    rdfs:domain gen:Person ; rdfs:range gen:Place ;
+    rdfs:comment "Burial place shortcut; also record a gen:Burial event with schema:location for details."@en .
+
+# 世系与分支
+gen:belongsToGeneration a owl:ObjectProperty ;
+    rdfs:label "belongs to generation"@en , "属于世代"@zh ;
+    rdfs:domain gen:Person ; rdfs:range gen:Generation .
+
+gen:branchOf a owl:ObjectProperty ;
+    rdfs:label "branch of"@en , "所属支系"@zh ;
+    rdfs:domain gen:Person ; rdfs:range gen:FamilyBranch .
+
+########################################
+# 4) 事件关联（Person -> Event）
+########################################
+
+gen:birthEvent a owl:ObjectProperty ;
+    rdfs:label "birth event"@en , "出生事件"@zh ;
+    rdfs:domain gen:Person ; rdfs:range gen:Birth .
+
+gen:deathEvent a owl:ObjectProperty ;
+    rdfs:label "death event"@en , "死亡事件"@zh ;
+    rdfs:domain gen:Person ; rdfs:range gen:Death .
+
+gen:burialEvent a owl:ObjectProperty ;
+    rdfs:label "burial event"@en , "安葬事件"@zh ;
+    rdfs:domain gen:Person ; rdfs:range gen:Burial .
+
+########################################
+# 5) 事件通用属性（沿用 schema:Event）
+########################################
+# - schema:startDate / schema:endDate : xsd:date | xsd:gYearMonth | xsd:gYear
+# - schema:location : gen:Place
+# - schema:participant : gen:Person
+# - schema:description : xsd:string
+# （建议保留不同纪年的原文到 schema:description 或 gen:sourceText）
+
+gen:sourceText a owl:DatatypeProperty ;
+    rdfs:label "source text"@en , "原文摘录"@zh ;
+    rdfs:domain gen:Event ;
+    rdfs:range xsd:string .
+
+########################################
+# 6) 地点扩展（Place 扩展属性）
+########################################
+
+gen:modernEquivalent a owl:DatatypeProperty ;
+    rdfs:label "modern equivalent name"@en , "现代对应地名"@zh ;
+    rdfs:domain gen:Place ;
+    rdfs:range xsd:string .
+
+# 可直接使用 schema:containedInPlace / schema:geo 等
+
+########################################
+# 7) 头衔/封号（Title）时间范围（沿用 schema:Role / schema:Event）
+########################################
+
+gen:titleName a owl:DatatypeProperty ;
+    rdfs:label "title/role name"@en , "头衔名称"@zh ;
+    rdfs:domain gen:Title ;
+    rdfs:range xsd:string ;
+    rdfs:subPropertyOf schema:roleName .
+
+gen:titleStart a owl:DatatypeProperty ;
+    rdfs:label "title start (year or date)"@en , "头衔起始时间"@zh ;
+    rdfs:domain gen:Title ;
+    rdfs:range xsd:string .
+
+gen:titleEnd a owl:DatatypeProperty ;
+    rdfs:label "title end (year or date)"@en , "头衔结束时间"@zh ;
+    rdfs:domain gen:Title ;
+    rdfs:range xsd:string .
+
+########################################
+# 8) 世代/支系（Generation / FamilyBranch）
+########################################
+
+gen:sequenceNumber a owl:DatatypeProperty ;
+    rdfs:label "sequence number"@en , "编号"@zh ;
+    rdfs:domain gen:Generation ;
+    rdfs:range xsd:integer ;
+    rdfs:comment "The ordinal number of a generation (e.g., 17 for '第十七世')."@en .
+
+gen:branchName a owl:DatatypeProperty ;
+    rdfs:label "branch name"@en , "支系名称"@zh ;
+    rdfs:domain gen:FamilyBranch ;
+    rdfs:range xsd:string .
+
+########################################
+# 9) 推理与一致性（可选建议）
+########################################
+# - gen:spouse、gen:swornBrotherOf 为对称属性（已设 owl:SymmetricProperty）
+# - gen:child owl:inverseOf gen:parent
+# - 你可在 SHACL 中增加约束：Person 最多一个 gen:father / gen:mother；Event 必须有 schema:location 等
+
+#################################################################
+# 结束（此文件仅定义本体，不含具体实例）
+# 你可以在另一个 data.ttl 中创建实例，或同文件下追加实例三元组。
+#################################################################

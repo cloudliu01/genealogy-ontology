@@ -1,0 +1,30 @@
+@prefix gen:    <https://cloudliu01.github.io/genealogy-ontology/> .
+@prefix schema: <http://schema.org/> .
+@prefix rdfs:   <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:    <http://www.w3.org/2001/XMLSchema#> .
+@prefix title:  <https://cloudliu01.github.io/genealogy-ontology/vocab/titles/> .
+
+title:ShuHanEmperor
+    a gen:Title ;
+    rdfs:label "Emperor of Shu Han"@en , "蜀汉皇帝"@zh ;
+    schema:roleName "皇帝"@zh , "Emperor"@en ;
+    schema:description "Sovereign ruler of the Shu Han state (221-263 CE)."@en ;
+    schema:startDate "0221"^^xsd:gYear ;
+    schema:endDate "0263"^^xsd:gYear ;
+    schema:sameAs <https://zh.wikipedia.org/wiki/%E8%9C%80%E6%BC%A2> .
+
+title:KingOfHanzhong
+    a gen:Title ;
+    rdfs:label "King of Hanzhong"@en , "汉中王"@zh ;
+    schema:roleName "王"@zh , "King"@en ;
+    schema:description "Title assumed by Liu Bei in 219 CE after victories in Hanzhong."@en ;
+    schema:startDate "0219"^^xsd:gYear ;
+    schema:sameAs <https://zh.wikipedia.org/wiki/%E6%B1%89%E4%B8%AD%E7%8E%8B> .
+
+title:DukeOfAnle
+    a gen:Title ;
+    rdfs:label "Duke of Anle"@en , "安乐公"@zh ;
+    schema:roleName "公"@zh , "Duke"@en ;
+    schema:description "Noble title granted to the abdicated Liu Shan by Cao Wei after the fall of Shu."@en ;
+    schema:startDate "0263"^^xsd:gYear ;
+    schema:sameAs <https://zh.wikipedia.org/wiki/%E5%AE%89%E4%B9%90%E5%85%AC> .

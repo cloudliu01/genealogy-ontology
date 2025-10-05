@@ -1,0 +1,39 @@
+@prefix gen:    <https://cloudliu01.github.io/genealogy-ontology/> .
+@prefix schema: <http://schema.org/> .
+@prefix foaf:   <http://xmlns.com/foaf/0.1/> .
+@prefix rdfs:   <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:    <http://www.w3.org/2001/XMLSchema#> .
+@prefix place:  <https://cloudliu01.github.io/genealogy-ontology/vocab/places/> .
+@prefix title:  <https://cloudliu01.github.io/genealogy-ontology/vocab/titles/> .
+@prefix person: <https://cloudliu01.github.io/genealogy-ontology/people/> .
+
+person:LiuShan
+    a gen:Person , schema:Person ;
+    schema:name "Liu Shan"@en , "刘禅"@zh ;
+    schema:familyName "Liu"@en , "刘"@zh ;
+    schema:givenName "Shan"@en , "禅"@zh ;
+    gen:templeName "后主"@zh ;
+    gen:posthumousTitleText "孝怀皇帝"@zh ;
+    schema:birthDate "0207"^^xsd:gYear ;
+    schema:deathDate "0271"^^xsd:gYear ;
+    schema:deathPlace place:Luoyang ;
+    gen:holdsTitle title:ShuHanEmperor , title:DukeOfAnle ;
+    gen:father person:LiuBei ;
+    gen:birthEvent person:LiuShan_Birth ;
+    gen:deathEvent person:LiuShan_Death ;
+    schema:description "Second and last emperor of Shu Han; later ennobled as Duke of Anle under the Jin dynasty."@en ;
+    schema:sameAs <https://zh.wikipedia.org/wiki/%E5%88%98%E7%A6%85> ,
+                 <https://dbpedia.org/resource/Liu_Shan> .
+
+person:LiuShan_Birth
+    a gen:Birth ;
+    schema:startDate "0207"^^xsd:gYear ;
+    schema:participant person:LiuShan ;
+    schema:description "Birth of Liu Shan in 207 CE; traditional sources differ on the precise location."@en .
+
+person:LiuShan_Death
+    a gen:Death ;
+    schema:startDate "0271"^^xsd:gYear ;
+    schema:location place:Luoyang ;
+    schema:participant person:LiuShan ;
+    schema:description "Death of Liu Shan in Luoyang after living as Duke of Anle."@en .

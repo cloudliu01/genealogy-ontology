@@ -1,0 +1,50 @@
+@prefix gen:    <https://cloudliu01.github.io/genealogy-ontology/> .
+@prefix schema: <http://schema.org/> .
+@prefix foaf:   <http://xmlns.com/foaf/0.1/> .
+@prefix rdfs:   <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:    <http://www.w3.org/2001/XMLSchema#> .
+@prefix place:  <https://cloudliu01.github.io/genealogy-ontology/vocab/places/> .
+@prefix title:  <https://cloudliu01.github.io/genealogy-ontology/vocab/titles/> .
+@prefix person: <https://cloudliu01.github.io/genealogy-ontology/people/> .
+
+person:LiuBei
+    a gen:Person , schema:Person ;
+    schema:name "Liu Bei"@en , "刘备"@zh ;
+    schema:familyName "Liu"@en , "刘"@zh ;
+    schema:givenName "Bei"@en , "备"@zh ;
+    gen:courtesyName "玄德"@zh ;
+    gen:templeName "烈祖"@zh ;
+    gen:posthumousTitleText "昭烈皇帝"@zh ;
+    schema:birthDate "0161"^^xsd:gYear ;
+    schema:deathDate "0223"^^xsd:gYear ;
+    schema:birthPlace place:ZhuoCommandery ;
+    gen:nativePlace place:ZhuoCommandery ;
+    gen:buriedIn place:HuilingMausoleum ;
+    gen:holdsTitle title:ShuHanEmperor , title:KingOfHanzhong ;
+    gen:child person:LiuShan ;
+    gen:birthEvent person:LiuBei_Birth ;
+    gen:deathEvent person:LiuBei_Death ;
+    gen:burialEvent person:LiuBei_Burial ;
+    schema:description "Founding emperor of Shu Han during the Three Kingdoms era."@en ;
+    schema:sameAs <https://zh.wikipedia.org/wiki/%E5%88%98%E5%A4%87> ,
+                 <https://dbpedia.org/resource/Liu_Bei> .
+
+person:LiuBei_Birth
+    a gen:Birth ;
+    schema:startDate "0161"^^xsd:gYear ;
+    schema:location place:ZhuoCommandery ;
+    schema:participant person:LiuBei ;
+    schema:description "Recorded birth of Liu Bei in Zhuo Commandery."@en .
+
+person:LiuBei_Death
+    a gen:Death ;
+    schema:startDate "0223"^^xsd:gYear ;
+    schema:participant person:LiuBei ;
+    schema:description "Death of Liu Bei in 223 CE at the White Emperor City after retreating from Chengdu."@en .
+
+person:LiuBei_Burial
+    a gen:Burial ;
+    schema:startDate "0223"^^xsd:gYear ;
+    schema:location place:HuilingMausoleum ;
+    schema:participant person:LiuBei ;
+    schema:description "Interment of Liu Bei at Huiling Mausoleum within the Wuhou Shrine complex."@en .
