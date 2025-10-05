@@ -1,0 +1,46 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix schema: <http://schema.org/> .
+@prefix gen: <https://你的用户名.github.io/genealogy-ontology/> .
+
+<https://你的用户名.github.io/genealogy-ontology/>
+    a owl:Ontology ;
+    rdfs:label "Chinese Genealogy Ontology" ;
+    rdfs:comment "A simple ontology for describing Chinese family lineages and historical biographical data." ;
+    owl:versionInfo "v0.1" .
+
+### 基本类 ###
+gen:Person a owl:Class ;
+    rdfs:label "Person" ;
+    rdfs:subClassOf schema:Person .
+
+gen:Place a owl:Class ;
+    rdfs:label "Place" ;
+    rdfs:subClassOf schema:Place .
+
+gen:Event a owl:Class ;
+    rdfs:label "Event" ;
+    rdfs:subClassOf schema:Event .
+
+### 常用属性 ###
+gen:courtesyName a owl:DatatypeProperty ;
+    rdfs:label "courtesy name (字)" ;
+    rdfs:domain gen:Person ;
+    rdfs:range xsd:string .
+
+gen:posthumousTitle a owl:DatatypeProperty ;
+    rdfs:label "posthumous title (谥号)" ;
+    rdfs:domain gen:Person ;
+    rdfs:range xsd:string .
+
+gen:father a owl:ObjectProperty ;
+    rdfs:label "father" ;
+    rdfs:domain gen:Person ;
+    rdfs:range gen:Person .
+
+gen:children a owl:ObjectProperty ;
+    rdfs:label "children" ;
+    rdfs:domain gen:Person ;
+    rdfs:range gen:Person .
