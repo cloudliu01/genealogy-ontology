@@ -3,9 +3,9 @@
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 @prefix schema: <http://schema.org/> .
-@prefix gen: <https://你的用户名.github.io/genealogy-ontology/> .
+@prefix gen: <https://github.com/cloudliu01/genealogy-ontology/> .
 
-<https://你的用户名.github.io/genealogy-ontology/>
+<https://github.com/cloudliu01/genealogy-ontology/>
     a owl:Ontology ;
     rdfs:label "Chinese Genealogy Ontology" ;
     rdfs:comment "A simple ontology for describing Chinese family lineages and historical biographical data." ;
