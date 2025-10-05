@@ -1,0 +1,28 @@
+version: "3.8"
+
+services:
+  graphdb:
+    image: ontotext/graphdb:10.8.11
+    container_name: graphdb
+    restart: unless-stopped
+
+    ports:
+      - "7200:7200"
+
+    environment:
+      # 等价于 docker run 中的 -e GDB_JAVA_OPTS=...
+      GDB_JAVA_OPTS: "-Xms2G -Xmx2G"
+
+    volumes:
+      # ✅ 挂载 license 文件（注意左边是你本机路径）
+      #- ./licenses/graphdb.license:/etc/graphdb/graphdb.license:ro 
+
+      # ✅ 数据持久化：GraphDB 官方建议挂载 /opt/graphdb/home
+      - ./graphdb-home:/opt/graphdb/home
+
+    # 可选健康检查，确认 7200 端口可访问
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7200/rest/repositories"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
