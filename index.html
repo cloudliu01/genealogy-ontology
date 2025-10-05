@@ -1,17 +1,279 @@
 <!doctype html>
 <html lang="zh-CN">
-<meta charset="utf-8" />
-<title>Ontology Viewer</title>
-<div id="app"></div>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Genealogy Ontology Explorer</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+      background-color: #f5f5f5;
+      color: #222;
+    }
 
-<script type="module">
-  // 仅此 8 行就能把 index.ttl 渲染成可浏览界面
-  import { createExplorer } from 'https://cdn.skypack.dev/@zazuko/rdf-explorer'
-  createExplorer({
-    element: document.getElementById('app'),
-    data: './index.ttl',          // 同目录下的 TTL 文件
-    contentType: 'text/turtle',   // 明确告知是 Turtle
-    title: 'Genealogy Ontology'   // 页眉标题（可改）
-  })
-</script>
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(235,239,250,0.9));
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+    }
+
+    header h1 {
+      margin: 0 0 0.5rem;
+      font-size: clamp(1.8rem, 3vw, 2.4rem);
+      color: #214a8a;
+    }
+
+    header p {
+      margin: 0 0 1.5rem;
+      line-height: 1.6;
+      color: #333;
+    }
+
+    .status {
+      padding: 0.75rem 1rem;
+      border-radius: 0.75rem;
+      background: rgba(33, 74, 138, 0.08);
+      color: #214a8a;
+      margin-bottom: 1.5rem;
+      font-weight: 600;
+    }
+
+    .status.error {
+      background: rgba(200, 30, 30, 0.08);
+      color: #9c1919;
+    }
+
+    .viewer details {
+      border-radius: 0.75rem;
+      background: rgba(255, 255, 255, 0.9);
+      margin-bottom: 1rem;
+      box-shadow: 0 12px 32px -16px rgba(33, 74, 138, 0.35);
+      overflow: hidden;
+    }
+
+    .viewer summary {
+      cursor: pointer;
+      font-weight: 600;
+      padding: 0.9rem 1.2rem;
+      background: linear-gradient(90deg, rgba(33, 74, 138, 0.16), rgba(33, 74, 138, 0));
+      outline: none;
+    }
+
+    .viewer summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .viewer summary::before {
+      content: '▶';
+      display: inline-block;
+      margin-right: 0.6rem;
+      transition: transform 0.2s ease;
+    }
+
+    details[open] > summary::before {
+      transform: rotate(90deg);
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 0.6rem 1.2rem;
+      border-top: 1px solid rgba(33, 74, 138, 0.08);
+      vertical-align: top;
+      font-family: "Fira Code", "Cascadia Code", Consolas, monospace;
+      font-size: 0.95rem;
+    }
+
+    th {
+      width: 30%;
+      color: #214a8a;
+      font-weight: 600;
+    }
+
+    @media (max-width: 640px) {
+      th, td {
+        display: block;
+        width: 100%;
+        padding: 0.5rem 0.9rem;
+      }
+
+      th {
+        border: none;
+        padding-bottom: 0;
+        font-size: 1rem;
+      }
+
+      td {
+        padding-top: 0.2rem;
+        padding-bottom: 0.9rem;
+        font-size: 0.95rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <header>
+      <h1>Genealogy Ontology Explorer</h1>
+      <p>从本地 <code>index.ttl</code> 文件加载并解析家谱本体。点击每个实体可以展开查看其属性。</p>
+    </header>
+    <div id="status" class="status">正在加载本体数据…</div>
+    <section id="viewer" class="viewer" hidden></section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/n3@1.17.4/browser/n3.min.js" crossorigin="anonymous"></script>
+  <script type="module">
+    const ttlPath = 'index.ttl';
+    const statusEl = document.getElementById('status');
+    const viewerEl = document.getElementById('viewer');
+
+    if (!window.N3) {
+      statusEl.textContent = '无法加载 N3 解析器，请检查网络或 CDN 配置。';
+      statusEl.classList.add('error');
+      throw new Error('N3 parser failed to load');
+    }
+
+    const { Parser } = window.N3;
+
+    const prefixRegex = /@prefix\s+([A-Za-z][\w-]*):\s*<([^>]+)>\s*\./g;
+
+    const extractPrefixes = (text) => {
+      const prefixes = [];
+      let match;
+      while ((match = prefixRegex.exec(text)) !== null) {
+        prefixes.push({ prefix: match[1], iri: match[2] });
+      }
+      return prefixes.sort((a, b) => b.iri.length - a.iri.length);
+    };
+
+    const shortenIri = (iri, prefixes) => {
+      for (const { prefix, iri: base } of prefixes) {
+        if (iri.startsWith(base)) {
+          const suffix = iri.slice(base.length);
+          return suffix ? `${prefix}:${suffix}` : `${prefix}:`;
+        }
+      }
+      return `<${iri}>`;
+    };
+
+    const literalToString = (literal) => {
+      const quoted = `"${literal.value}"`;
+      if (literal.language) {
+        return `${quoted}@${literal.language}`;
+      }
+      const datatype = literal.datatype && literal.datatype.value;
+      if (datatype && datatype !== 'http://www.w3.org/2001/XMLSchema#string') {
+        return `${quoted}^^<${datatype}>`;
+      }
+      return quoted;
+    };
+
+    const termToString = (term, prefixes) => {
+      switch (term.termType) {
+        case 'NamedNode':
+          return shortenIri(term.value, prefixes);
+        case 'BlankNode':
+          return `_:${term.value}`;
+        case 'Literal':
+          return literalToString(term);
+        default:
+          return term.value;
+      }
+    };
+
+    const renderQuads = (quads, prefixes) => {
+      if (!quads.length) {
+        statusEl.textContent = '本体文件中没有找到任何三元组。';
+        return;
+      }
+
+      const grouped = new Map();
+      for (const quad of quads) {
+        const subject = termToString(quad.subject, prefixes);
+        const predicate = termToString(quad.predicate, prefixes);
+        const object = termToString(quad.object, prefixes);
+        if (!grouped.has(subject)) {
+          grouped.set(subject, []);
+        }
+        grouped.get(subject).push({ predicate, object });
+      }
+
+      const subjects = Array.from(grouped.keys()).sort((a, b) => a.localeCompare(b));
+      viewerEl.innerHTML = '';
+
+      for (const subject of subjects) {
+        const details = document.createElement('details');
+        details.open = true;
+
+        const summary = document.createElement('summary');
+        summary.textContent = subject;
+        details.appendChild(summary);
+
+        const table = document.createElement('table');
+        const tbody = document.createElement('tbody');
+
+        const statements = grouped.get(subject).sort((a, b) => a.predicate.localeCompare(b.predicate));
+        for (const { predicate, object } of statements) {
+          const row = document.createElement('tr');
+          const th = document.createElement('th');
+          th.textContent = predicate;
+          const td = document.createElement('td');
+          td.textContent = object;
+          row.appendChild(th);
+          row.appendChild(td);
+          tbody.appendChild(row);
+        }
+
+        table.appendChild(tbody);
+        details.appendChild(table);
+        viewerEl.appendChild(details);
+      }
+
+      statusEl.textContent = `已加载 ${quads.length} 条三元组，包含 ${subjects.length} 个实体。`;
+      viewerEl.hidden = false;
+    };
+
+    const loadOntology = async () => {
+      try {
+        const response = await fetch(ttlPath, { cache: 'no-cache' });
+        if (!response.ok) {
+          throw new Error(`无法获取 ${ttlPath}（HTTP ${response.status}）`);
+        }
+
+        const text = await response.text();
+        const prefixes = extractPrefixes(text);
+        const parser = new Parser({ format: 'text/turtle' });
+        const quads = parser.parse(text);
+
+        if (parser._prefixes) {
+          Object.entries(parser._prefixes).forEach(([prefix, iri]) => {
+            if (!prefixes.some((item) => item.prefix === prefix)) {
+              prefixes.push({ prefix, iri });
+            }
+          });
+          prefixes.sort((a, b) => b.iri.length - a.iri.length);
+        }
+
+        renderQuads(quads, prefixes);
+      } catch (error) {
+        console.error(error);
+        statusEl.textContent = `加载失败：${error.message}`;
+        statusEl.classList.add('error');
+      }
+    };
+
+    loadOntology();
+  </script>
+</body>
 </html>
