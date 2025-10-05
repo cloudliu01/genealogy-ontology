@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8" />
+<title>Ontology Viewer</title>
+<div id="app"></div>
+
+<script type="module">
+  // 仅此 8 行就能把 index.ttl 渲染成可浏览界面
+  import { createExplorer } from 'https://cdn.skypack.dev/@zazuko/rdf-explorer'
+  createExplorer({
+    element: document.getElementById('app'),
+    data: './index.ttl',          // 同目录下的 TTL 文件
+    contentType: 'text/turtle',   // 明确告知是 Turtle
+    title: 'Genealogy Ontology'   // 页眉标题（可改）
+  })
+</script>
+</html>
